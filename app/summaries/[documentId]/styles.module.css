@@ -4,12 +4,12 @@
   padding: 1.5rem;
   background-color: #f8f9fa;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .overview-paragraph {
-  margin-bottom: 1rem;
-  line-height: 1.6;
+  margin-bottom: 1.25rem; /* Added more spacing for better readability */
+  line-height: 1.7;
 }
 
 .overview-introduction {
@@ -28,7 +28,7 @@
   padding: 1.5rem;
   background-color: #f1f8ff;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .key-points-list {
@@ -38,9 +38,9 @@
 
 .key-point {
   position: relative;
-  padding-left: 1.5rem;
+  padding-left: 1.75rem; /* Increased padding for better alignment */
   margin-bottom: 0.75rem;
-  line-height: 1.5;
+  line-height: 1.6; /* Adjusted for readability */
 }
 
 .key-point:before {
@@ -70,12 +70,12 @@
   background-color: #fff;
   border-radius: 8px;
   border-left: 4px solid #3498db;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .chapter-title {
   margin-top: 0;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem; /* More spacing below title */
   color: #2c3e50;
   font-size: 1.25rem;
   font-weight: 600;
@@ -83,7 +83,7 @@
 
 .chapter-paragraph {
   margin-bottom: 1rem;
-  line-height: 1.6;
+  line-height: 1.7; /* Adjusted for better readability */
 }
 
 .chapter-overview {
@@ -93,4 +93,19 @@
 .chapter-significance {
   font-style: italic;
   color: #34495e;
-} 
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .overview-container, .key-points-container, .chapter-summary-container {
+    padding: 1rem;
+  }
+
+  .overview-paragraph, .key-point, .chapter-paragraph {
+    margin-bottom: 1rem;
+  }
+
+  .chapter-title {
+    font-size: 1.1rem;
+  }
+}
