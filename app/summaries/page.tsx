@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Upload, FileText, Calendar } from "lucide-react";
 import { FirebasePdfUploader } from "@/components/firebase-pdf-uploader";
 import { useUser } from "@clerk/nextjs";
-
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import axios from "axios";
@@ -25,12 +24,10 @@ export default function Summaries() {
   useEffect(() => {
     const fetchDocuments = async () => {
       if (!user) return;
-      
       try {
         setIsLoading(true);
         const response = await axios.get('/api/summaries');
         setDocuments(response.data);
-        setIsLoading(false);
       } catch (error) {
         console.error("Error fetching documents:", error);
         toast({
@@ -38,6 +35,7 @@ export default function Summaries() {
           description: "Failed to load your documents",
           variant: "destructive",
         });
+      } finally {
         setIsLoading(false);
       }
     };
@@ -49,31 +47,24 @@ export default function Summaries() {
 
   const handleUpload = async (result: any) => {
     if (!user || !result) return;
-    
+
     try {
-      console.log("Starting document upload process with:", result);
-      
-      // Use the document title or fallback to the filename without extension
       const title = documentTitle.trim() || result.name.replace(/\.[^/.]+$/, "") || "Untitled Document";
-      
+
       const response = await saveDocumentForSummary({
         userId: user.id,
-        title: title,
+        title,
         fileName: result.name,
         fileUrl: result.url,
         fileKey: result.key,
         fileSize: result.size,
       });
-      
-      console.log("Document save response:", response);
-      
+
       if (response.success && response.documentId) {
         toast({
           title: "Success",
           description: "Document uploaded successfully. Generating summaries...",
         });
-        
-        // Redirect to the summary page
         router.push(`/summaries/${response.documentId}`);
       } else {
         toast({
@@ -92,101 +83,94 @@ export default function Summaries() {
     }
   };
 
-  // Format date to a readable string
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
   return (
-    <div className="container mx-auto py-10 px-4 max-w-5xl">
-      <h1 className="text-3xl font-bold mb-6">PDF Summaries</h1>
-      
-      <Card className="w-full max-w-3xl mx-auto mb-10">
+    <div className="container mx-auto px-4 py-10 max-w-6xl">
+      <h1 className="text-4xl font-bold text-center mb-10">PDF Summaries</h1>
+
+      <Card className="w-full shadow-sm border rounded-xl mb-12">
         <CardHeader>
-          <CardTitle>Upload Document for Summary</CardTitle>
-          <CardDescription>
-            Upload a PDF to generate chapter-wise summaries
-          </CardDescription>
+          <CardTitle className="text-xl">Upload Document</CardTitle>
+          <CardDescription>Upload a PDF to get automatic chapter-wise summaries.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <label htmlFor="documentTitle" className="block text-sm font-medium mb-1">
-              Document Title (optional)
-            </label>
-            <Input
-              id="documentTitle"
-              placeholder="Enter a title for your document"
-              value={documentTitle}
-              onChange={(e) => setDocumentTitle(e.target.value)}
-              className="mb-4"
-            />
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="documentTitle" className="block text-sm font-medium mb-1">
+                Document Title (optional)
+              </label>
+              <Input
+                id="documentTitle"
+                placeholder="e.g., Introduction to AI"
+                value={documentTitle}
+                onChange={(e) => setDocumentTitle(e.target.value)}
+              />
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition hover:bg-muted/30">
+              <FirebasePdfUploader
+                onUploadBegin={() => setIsUploading(true)}
+                onUploadComplete={(result) => {
+                  setIsUploading(false);
+                  handleUpload(result);
+                }}
+                onUploadError={(error) => {
+                  setIsUploading(false);
+                  toast({
+                    title: "Upload Error",
+                    description: error.message,
+                    variant: "destructive",
+                  });
+                }}
+              />
+              {isUploading && (
+                <p className="mt-2 text-sm text-muted-foreground animate-pulse">Uploading...</p>
+              )}
+            </div>
           </div>
-          
-          <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6">
-            <FirebasePdfUploader
-              onUploadBegin={() => {
-                setIsUploading(true);
-              }}
-              onUploadComplete={(result) => {
-                setIsUploading(false);
-                handleUpload(result);
-              }}
-              onUploadError={(error) => {
-                setIsUploading(false);
-                console.error("Upload error:", error.message);
-                toast({
-                  title: "Upload Error",
-                  description: error.message,
-                  variant: "destructive",
-                });
-              }}
-            />
-          </div>
-          
-          <p className="text-sm text-muted-foreground mt-4 text-center">
-            Enter an optional title above and upload your PDF. We'll analyze the document and generate chapter-wise summaries.
-          </p>
         </CardContent>
       </Card>
-      
-      {/* Document Cards Section */}
-      <div className="mt-12">
-        <h2 className="text-2xl font-semibold mb-6">Your Documents</h2>
-        
+
+      <div>
+        <h2 className="text-2xl font-semibold mb-6">Your Uploaded Documents</h2>
+
         {isLoading ? (
-          <div className="flex justify-center items-center h-40">
-            <p className="text-muted-foreground">Loading your documents...</p>
+          <div className="flex justify-center py-20 text-muted-foreground">
+            Loading documents...
           </div>
         ) : documents.length === 0 ? (
-          <div className="text-center py-10 border rounded-lg bg-muted/20">
-            <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">You haven't uploaded any documents for summarization yet</p>
+          <div className="flex flex-col items-center py-16 bg-muted/20 rounded-lg border">
+            <FileText className="w-10 h-10 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">You haven't uploaded any documents yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {documents.map((doc) => (
-              <Card key={doc.id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <Card
+                key={doc.id}
+                className="border rounded-lg hover:shadow-lg transition-shadow"
+              >
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg truncate">{doc.title}</CardTitle>
                   <CardDescription className="truncate">{doc.fileName}</CardDescription>
                 </CardHeader>
-                <CardContent className="pb-2">
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    <span>Uploaded on {formatDate(doc.createdAt)}</span>
+                <CardContent className="pb-2 text-sm text-muted-foreground">
+                  <div className="flex items-center mb-1">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Uploaded on {formatDate(doc.createdAt)}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {Math.round(doc.fileSize / 1024)} KB
-                  </div>
+                  <div>{Math.round(doc.fileSize / 1024)} KB</div>
                 </CardContent>
                 <CardFooter>
-                  <Button 
-                    variant="default" 
+                  <Button
                     className="w-full"
                     onClick={() => router.push(`/summaries/${doc.id}`)}
                   >
@@ -200,4 +184,4 @@ export default function Summaries() {
       </div>
     </div>
   );
-} 
+}
