@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,8 +14,7 @@ import { FileText, RefreshCw } from "lucide-react";
 import { RegenerationModal } from "@/components/RegenerationModal";
 
 export default function DocumentSummary() {
-  const params = useParams();
-  const documentId = params.documentId as string;
+  const { documentId } = useParams();
   const [documentDetails, setDocumentDetails] = useState<any>(null);
   const [summaries, setSummaries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,37 +23,29 @@ export default function DocumentSummary() {
   const [isRegenerationModalOpen, setIsRegenerationModalOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
-  const router = useRouter();
 
-  useEffect(() => {
-    const fetchDocumentDetails = async () => {
-      try {
-        setIsLoading(true);
-        const response = await axios.get(`/api/summaries/${documentId}`);
-        setDocumentDetails(response.data.document);
-        setSummaries(response.data.summaries || []);
-        
-        // Check if summaries are still being generated
-        const hasSummaries = response.data.summaries && response.data.summaries.length > 0;
-        setIsSummaryLoading(!hasSummaries);
-        
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching document:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load document details",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-      }
-    };
-
-    if (documentId && user) {
-      fetchDocumentDetails();
+  // Fetch document details and summaries
+  const fetchDocumentDetails = useCallback(async () => {
+    if (!documentId || !user) return;
+    
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`/api/summaries/${documentId}`);
+      setDocumentDetails(response.data.document);
+      setSummaries(response.data.summaries || []);
+      setIsSummaryLoading(response.data.summaries?.length === 0);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load document details",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [documentId, toast, user]);
+  }, [documentId, user, toast]);
 
+  // Trigger regeneration of summaries
   const handleRegenerationSubmit = async (options: {
     focusChapters: string[];
     focusTopics: string[];
@@ -65,29 +56,26 @@ export default function DocumentSummary() {
       setIsSummaryLoading(true);
       toast({
         title: "Processing",
-        description: "Regenerating summaries with your preferences. This may take a minute...",
+        description: "Regenerating summaries. Please wait...",
       });
-      
+
       const response = await axios.post(`/api/summaries/${documentId}/regenerate`, options);
       
       if (response.data.success) {
         toast({
           title: "Success",
-          description: "Summaries are being regenerated. Please check back in a moment.",
+          description: "Summaries are being regenerated. Please check back soon.",
         });
         
-        // Refresh the page after a short delay
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
+        setTimeout(() => window.location.reload(), 3000);
       }
     } catch (error) {
-      console.error("Error regenerating summaries:", error);
       toast({
         title: "Error",
         description: "Failed to regenerate summaries",
         variant: "destructive",
       });
+    } finally {
       setIsSummaryLoading(false);
     }
   };
@@ -96,6 +84,12 @@ export default function DocumentSummary() {
     setIsRegenerationModalOpen(true);
   };
 
+  // Load document details on component mount
+  useEffect(() => {
+    fetchDocumentDetails();
+  }, [fetchDocumentDetails]);
+
+  // Show loading state when data is being fetched
   if (isLoading) {
     return (
       <div className="container mx-auto py-10 px-4">
@@ -108,9 +102,7 @@ export default function DocumentSummary() {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      <h1 className="text-2xl font-bold mb-6">
-        Summaries for: {documentDetails?.title || "PDF Document"}
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">{documentDetails?.title || "PDF Document"}</h1>
       
       <ResizablePanelGroup direction="horizontal" className="min-h-[600px] rounded-lg border">
         {/* Summaries Panel */}
@@ -137,25 +129,18 @@ export default function DocumentSummary() {
             <CardContent className="flex-1 overflow-auto p-4">
               {isSummaryLoading ? (
                 <div className="space-y-4">
-                  <p className="text-center text-muted-foreground mb-4">
-                    Generating summaries... This may take a few minutes depending on document size.
-                  </p>
+                  <p className="text-center text-muted-foreground mb-4">Generating summaries...</p>
                   <div className="space-y-3">
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-[80%]" />
-                  </div>
-                  <div className="space-y-3 mt-6">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-[70%]" />
                   </div>
                 </div>
               ) : summaries.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full">
                   <FileText className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-center text-muted-foreground">
-                    No summaries available yet. Click "Regenerate" to create summaries.
+                    No summaries available. Click "Regenerate" to create them.
                   </p>
                 </div>
               ) : (
@@ -169,21 +154,12 @@ export default function DocumentSummary() {
                     <div className="prose prose-sm max-w-none">
                       <h3 className="text-lg font-semibold mb-2">Document Overview</h3>
                       <div className="bg-muted/30 p-4 rounded-md">
-                        {summaries.find(s => s.type === 'overview')?.content || 
-                          "No overview available. Try regenerating the summaries."}
+                        {summaries.find(s => s.type === 'overview')?.content || "No overview available."}
                       </div>
                       
                       <h3 className="text-lg font-semibold mt-6 mb-2">Key Points</h3>
                       <div className="bg-muted/30 p-4 rounded-md">
-                        {summaries.find(s => s.type === 'key_points')?.content ? (
-                          <div dangerouslySetInnerHTML={{ 
-                            __html: summaries.find(s => s.type === 'key_points')?.content
-                              .replace(/\n/g, '<br>')
-                              .replace(/- /g, '• ') 
-                          }} />
-                        ) : (
-                          "No key points available. Try regenerating the summaries."
-                        )}
+                        {summaries.find(s => s.type === 'key_points')?.content || "No key points available."}
                       </div>
                     </div>
                   </TabsContent>
@@ -204,7 +180,7 @@ export default function DocumentSummary() {
                         
                       {summaries.filter(s => s.type === 'chapter').length === 0 && (
                         <div className="text-center text-muted-foreground py-8">
-                          No chapter summaries available. Try regenerating the summaries.
+                          No chapter summaries available.
                         </div>
                       )}
                     </div>
@@ -217,7 +193,7 @@ export default function DocumentSummary() {
         
         <ResizableHandle />
         
-        {/* PDF Viewer Panel */}
+        {/* Document Viewer Panel */}
         <ResizablePanel defaultSize={60}>
           <div className="h-full flex flex-col">
             <CardHeader className="px-4">
@@ -244,4 +220,4 @@ export default function DocumentSummary() {
       />
     </div>
   );
-} 
+}
